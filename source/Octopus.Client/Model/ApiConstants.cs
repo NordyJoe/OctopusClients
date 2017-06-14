@@ -5,6 +5,7 @@ namespace Octopus.Client.Model
     public class ApiConstants
     {
         public static readonly int DefaultClientRequestTimeout = 1000 * 60 * 10;
+        public static readonly TimeSpan DefaultClientRequestTimeoutTimespan = TimeSpan.FromMilliseconds(DefaultClientRequestTimeout);
         public static readonly string SupportedApiSchemaVersionMin = "3.0.0";
         public static readonly string SupportedApiSchemaVersionMax = "3.0.99";
         public static readonly string AuthenticationCookiePrefix = "OctopusIdentificationToken";

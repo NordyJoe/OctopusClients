@@ -1,76 +1,378 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Text;
-using Newtonsoft.Json;
-using Octopus.Client.Exceptions;
-using Octopus.Client.Model;
-using Octopus.Client.Serialization;
-using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
+using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
-using Octopus.Client.Extensions;
-using Octopus.Client.Logging;
-using Octopus.Client.Util;
+using Newtonsoft.Json;
+using Octopus.Client.DataCenterManager.Model;
+using Octopus.Client.Exceptions;
+using SemanticVersion = Octopus.Client.Model.SemanticVersion;
+using ApiConstants = Octopus.Client.Model.ApiConstants;
 
 namespace Octopus.Client
 {
-    /// <summary>
-    /// The Octopus Deploy RESTful HTTP API client.
-    /// </summary>
-    public class OctopusAsyncClient : IOctopusAsyncClient
+    public interface IOctopusDataCenterManagerClient : IDisposable
     {
-        private static readonly ILog Logger = LogProvider.For<OctopusAsyncClient>();
+        /// <summary>
+        /// Gets a document that identifies the Octopus server (from /api) and provides links to the resources available on the
+        /// server. Instead of hardcoding paths,
+        /// clients should use these link properties to traverse the resources on the server. This document is lazily loaded so
+        /// that it is only requested once for
+        /// the current <see cref="IOctopusAsyncClient" />.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        RootResource RootDocument { get; }
 
-        readonly OctopusServerEndpoint serverEndpoint;
-        readonly JsonSerializerSettings defaultJsonSerializerSettings = JsonSerialization.GetDefaultSerializerSettings();
+        /// <summary>
+        /// Occurs when a request is about to be sent.
+        /// </summary>
+        event Action<OctopusRequest> SendingOctopusRequest;
+
+        /// <summary>
+        /// Occurs when a response is received from the Octopus server.
+        /// </summary>
+        event Action<OctopusResponse> ReceivedOctopusResponse;
+
+        /// <summary>
+        /// Occurs when a request is about to be sent.
+        /// </summary>
+        event Action<HttpRequestMessage> BeforeSendingHttpRequest;
+
+        /// <summary>
+        /// Occurs when a response has been received.
+        /// </summary>
+        event Action<HttpResponseMessage> AfterReceivedHttpResponse;
+
+        /// <summary>
+        /// A simplified interface to commonly-used parts of the API.
+        /// </summary>
+        IOctopusDataCenterManagerRepository Repository { get; }
+
+        /// <summary>
+        /// Fetches a collection of resources from the server using the HTTP GET verb. The collection itself will usually be
+        /// limited in size (pagination) and links to the next page of data is available in the <see cref="Resource.Links" />
+        /// property.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path from which to fetch the resources.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <returns>The collection of resources from the server.</returns>
+        Task<ResourceCollection<TResource>> List<TResource>(string path, object pathParameters = null);
+
+        /// <summary>
+        /// Fetches a collection of resources from the server using the HTTP GET verb. All result pages will be retrieved.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path from which to fetch the resources.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <returns>The collection of resources from the server.</returns>
+        Task<IReadOnlyList<TResource>> ListAll<TResource>(string path, object pathParameters = null);
+
+        /// <summary>
+        /// Fetches a collection of resources from the server one page at a time using the HTTP GET verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path from which to fetch the resources.</param>
+        /// <param name="getNextPage">
+        /// A callback invoked for each page of data found. If the callback returns <c>true</c>, the next
+        /// page will also be requested.
+        /// </param>
+        /// <returns>The collection of resources from the server.</returns>
+        Task Paginate<TResource>(string path, Func<ResourceCollection<TResource>, bool> getNextPage);
+
+        /// <summary>
+        /// Fetches a collection of resources from the server one page at a time using the HTTP GET verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path from which to fetch the resources.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <param name="getNextPage">
+        /// A callback invoked for each page of data found. If the callback returns <c>true</c>, the next
+        /// page will also be requested.
+        /// </param>
+        /// <returns>The collection of resources from the server.</returns>
+        Task Paginate<TResource>(string path, object pathParameters, Func<ResourceCollection<TResource>, bool> getNextPage);
+
+        /// <summary>
+        /// Fetches a single resource from the server using the HTTP GET verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path from which to fetch the resource.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <returns>The resource from the server.</returns>
+        Task<TResource> Get<TResource>(string path, object pathParameters = null);
+
+        /// <summary>
+        /// Creates a resource at the given URI on the server using the POST verb, then performs a fresh GET request to fetch
+        /// the created item.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the container resource.</param>
+        /// <param name="resource">The resource to create.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <returns>The latest copy of the resource from the server.</returns>
+        Task<TResource> Create<TResource>(string path, TResource resource, object pathParameters = null);
+
+        /// <summary>
+        /// Sends a command to a resource at the given URI on the server using the POST verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the container resource.</param>
+        /// <param name="resource">The resource to create.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        Task Post<TResource>(string path, TResource resource, object pathParameters = null);
+
+        /// <summary>
+        /// Sends a command to a resource at the given URI on the server using the POST verb, and retrieve the response.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the container resource.</param>
+        /// <param name="resource">The resource to create.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        Task<TResponse> Post<TResource, TResponse>(string path, TResource resource, object pathParameters = null);
+
+        /// <summary>
+        /// Sends a command to a resource at the given URI on the server using the POST verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the container resource.</param>
+        Task Post(string path);
+
+        /// <summary>
+        /// Sends a command to a resource at the given URI on the server using the PUT verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the container resource.</param>
+        /// <param name="resource">The resource to create.</param>
+        Task Put<TResource>(string path, TResource resource);
+
+        /// <summary>
+        /// Sends a command to a resource at the given URI on the server using the PUT verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the container resource.</param>
+        Task Put(string path);
+
+        /// <summary>
+        /// Updates the resource at the given URI on the server using the PUT verb, then performs a fresh GET request to reload
+        /// the data.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the resource to update.</param>
+        /// <param name="resource">The resource to update.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <returns>The latest copy of the resource from the server.</returns>
+        Task<TResource> Update<TResource>(string path, TResource resource, object pathParameters = null);
+
+        /// <summary>
+        /// Deletes the resource at the given URI from the server using a the DELETE verb. Deletes in Octopus happen
+        /// asynchronously via a background task
+        /// that is executed by the Octopus server. The payload returned by delete will be the task that was created on the
+        /// server.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the resource to delete.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <returns>A task resource that provides details about the background task that deletes the specified resource.</returns>
+        Task Delete(string path, object pathParameters = null);
+
+        /// <summary>
+        /// Fetches raw content from the resource at the specified path, using the GET verb.
+        /// </summary>
+        /// <exception cref="OctopusSecurityException">
+        /// HTTP 401 or 403: Thrown when the current user's API key was not valid, their
+        /// account is disabled, or they don't have permission to perform the specified action.
+        /// </exception>
+        /// <exception cref="OctopusServerException">
+        /// If any other error is successfully returned from the server (e.g., a 500
+        /// server error).
+        /// </exception>
+        /// <exception cref="OctopusValidationException">HTTP 400: If there was a problem with the request provided by the user.</exception>
+        /// <exception cref="OctopusResourceNotFoundException">HTTP 404: If the specified resource does not exist on the server.</exception>
+        /// <param name="path">The path to the resource to fetch.</param>
+        /// <param name="pathParameters">If the <c>path</c> is a URI template, parameters to use for substitution.</param>
+        /// <returns>A stream containing the content of the resource.</returns>
+        Task<Stream> GetContent(string path, object pathParameters = null);
+
+        /// <summary>
+        /// Creates or updates the raw content of the resource at the specified path, using the PUT verb.
+        /// </summary>
+        /// <param name="path">The path to the resource to create or update.</param>
+        /// <param name="contentStream">A stream containing content of the resource.</param>
+        Task PutContent(string path, Stream contentStream);
+
+        Uri QualifyUri(string path, object parameters = null);
+
+        /// <summary>
+        /// Requests a fresh root document from the Octopus Server which can be useful if the API surface has changed. This can occur when enabling/disabling features, or changing license.
+        /// </summary>
+        /// <returns>A fresh copy of the root document.</returns>
+        Task<RootResource> RefreshRootDocument();
+
+    }
+
+    public class OctopusDataCenterManagerClient : IOctopusDataCenterManagerClient
+    {
+        private readonly OctopusServerEndpoint endpoint;
+
+        readonly JsonSerializerSettings defaultJsonSerializerSettings = new JsonSerializerSettings();
         private readonly HttpClient client;
         private readonly CookieContainer cookieContainer = new CookieContainer();
         private readonly Uri cookieOriginUri;
-        private readonly bool ignoreSslErrors = false;
-        bool ignoreSslErrorMessageLogged = false;
 
-        // Use the Create method to instantiate
-        private OctopusAsyncClient(OctopusServerEndpoint serverEndpoint, OctopusClientOptions options, bool addCertificateCallback)
+        protected OctopusDataCenterManagerClient(OctopusServerEndpoint endpoint)
         {
-            options = options ?? new OctopusClientOptions();
-
-            this.serverEndpoint = serverEndpoint;
-            cookieOriginUri = BuildCookieUri(serverEndpoint);
-            var handler = new HttpClientHandler
+            this.endpoint = endpoint;
+            Repository = new OctopusDataCenterManagerRepository(this);
+            cookieOriginUri = BuildCookieUri(endpoint);
+            var handler = new HttpClientHandler()
             {
-                CookieContainer = cookieContainer,
-                Credentials = serverEndpoint.Credentials ?? CredentialCache.DefaultNetworkCredentials,
+                CookieContainer = cookieContainer
             };
 
-            if (options.Proxy != null)
+            if (endpoint.Proxy != null)
             {
                 handler.UseProxy = true;
-                handler.Proxy = new ClientProxy(options.Proxy, options.ProxyUsername, options.ProxyPassword);
+                handler.Proxy = endpoint.Proxy;
             }
-
-#if HTTP_CLIENT_SUPPORTS_SSL_OPTIONS
-            handler.SslProtocols = options.SslProtocols;
-            if(addCertificateCallback)
-            {
-                ignoreSslErrors = options.IgnoreSslErrors;
-                handler.ServerCertificateCustomValidationCallback = IgnoreServerCertificateCallback;
-            }
-#endif
-
-            if (serverEndpoint.Proxy != null)
-                handler.Proxy = serverEndpoint.Proxy;
-
+            
             client = new HttpClient(handler, true);
-            client.Timeout = serverEndpoint.RequestTimeout == ApiConstants.DefaultClientRequestTimeoutTimespan ? options.Timeout : serverEndpoint.RequestTimeout;
+            client.Timeout = endpoint.RequestTimeout;
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add(ApiConstants.ApiKeyHttpHeaderName, serverEndpoint.ApiKey);
-            client.DefaultRequestHeaders.Add("User-Agent", $"{ApiConstants.OctopusUserAgentProductName}/{GetType().GetSemanticVersion().ToNormalizedString()}");
+            client.DefaultRequestHeaders.Add("X-Octopus-ApiKey", endpoint.ApiKey);
+            client.DefaultRequestHeaders.Add("User-Agent", $"OctopusDataCenterManagerClient-dotnet/{GetType().GetTypeInfo().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion}");
         }
 
         private Uri BuildCookieUri(OctopusServerEndpoint octopusServerEndpoint)
@@ -78,61 +380,19 @@ namespace Octopus.Client
             // The CookieContainer is a bit funny - it sets the cookie without the port, but doesn't ignore the port when retreiving cookies
             // From what I can see it uses the Uri.Authority value - which contains the port number
             // We need to clear the port in order to successfully get cookies for the same origin
-            var uriBuilder = new UriBuilder(octopusServerEndpoint.OctopusServer.Resolve("/")) {Port = 0};
+            var uriBuilder = new UriBuilder(octopusServerEndpoint.OctopusServer.Resolve("/")) { Port = 0 };
             return uriBuilder.Uri;
         }
 
-        private bool IgnoreServerCertificateCallback(HttpRequestMessage message, X509Certificate2 certificate, X509Chain chain, SslPolicyErrors errors)
+        public static Task<IOctopusDataCenterManagerClient> Create(string serverAddress, string apiKey)
+            => Create(new OctopusServerEndpoint(serverAddress, apiKey));
+
+        public static async Task<IOctopusDataCenterManagerClient> Create(OctopusServerEndpoint endpoint)
         {
-            if (errors == SslPolicyErrors.None)
-            {
-                return true;
-            }
-
-            var warning = $@"The following certificate errors were encountered when establishing the HTTPS connection to the server: {errors}
-Certificate subject name: {certificate.SubjectName.Name}
-Certificate thumbprint:   {certificate.Thumbprint}";
-
-            if (ignoreSslErrors)
-            {
-                if (!ignoreSslErrorMessageLogged)
-                {
-                    Logger.Warn(warning);
-                    Logger.Warn("Because IgnoreSslErrors was set, this will be ignored.");
-                    ignoreSslErrorMessageLogged = true;
-                }
-                return true;
-            }
-
-            Logger.Error(warning);
-            return false;
-        }
-
-        public static async Task<IOctopusAsyncClient> Create(OctopusServerEndpoint serverEndpoint, OctopusClientOptions options = null)
-        {
-#if HTTP_CLIENT_SUPPORTS_SSL_OPTIONS
-            try
-            {
-                return await Create(serverEndpoint, options, true);
-            }
-            catch (PlatformNotSupportedException)
-            {
-                if (options?.IgnoreSslErrors ?? false)
-                    throw new Exception("This platform does not support ignoring SSL certificate errors");
-                return await Create(serverEndpoint, options, false);
-            }
-#else
-            return await Create(serverEndpoint, options, false);
-#endif
-        }
-
-        private static async Task<IOctopusAsyncClient> Create(OctopusServerEndpoint serverEndpoint, OctopusClientOptions options, bool addHandler)
-        {
-            var client = new OctopusAsyncClient(serverEndpoint, options ?? new OctopusClientOptions(), addHandler);
+            var client = new OctopusDataCenterManagerClient(endpoint);
             try
             {
                 client.RootDocument = await client.EstablishSession().ConfigureAwait(false);
-                client.Repository = new OctopusAsyncRepository(client);
                 return client;
             }
             catch
@@ -198,7 +458,7 @@ Certificate thumbprint:   {certificate.Thumbprint}";
             return response.ResponseResource;
         }
 
-        public IOctopusAsyncRepository Repository { get; private set; }
+        public IOctopusDataCenterManagerRepository Repository { get; }
 
         /// <summary>
         /// Fetches a collection of resources from the server using the HTTP GET verb. The collection itself will usually be
@@ -211,9 +471,9 @@ Certificate thumbprint:   {certificate.Thumbprint}";
         /// <returns>
         /// The collection of resources from the server.
         /// </returns>
-        public async Task<ResourceCollection<TResource>> List<TResource>(string path, object pathParameters = null)
+        public async Task<DataCenterManager.Model.ResourceCollection<TResource>> List<TResource>(string path, object pathParameters = null)
         {
-            return await Get<ResourceCollection<TResource>>(path, pathParameters).ConfigureAwait(false);
+            return await Get<DataCenterManager.Model.ResourceCollection<TResource>>(path, pathParameters).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -247,7 +507,7 @@ Certificate thumbprint:   {certificate.Thumbprint}";
         /// A callback invoked for each page of data found. If the callback returns <c>true</c>, the next
         /// page will also be requested.
         /// </param>
-        public async Task Paginate<TResource>(string path, object pathParameters, Func<ResourceCollection<TResource>, bool> getNextPage)
+        public async Task Paginate<TResource>(string path, object pathParameters, Func<DataCenterManager.Model.ResourceCollection<TResource>, bool> getNextPage)
         {
             var page = await List<TResource>(path, pathParameters).ConfigureAwait(false);
 
@@ -266,7 +526,7 @@ Certificate thumbprint:   {certificate.Thumbprint}";
         /// A callback invoked for each page of data found. If the callback returns <c>true</c>, the next
         /// page will also be requested.
         /// </param>
-        public Task Paginate<TResource>(string path, Func<ResourceCollection<TResource>, bool> getNextPage)
+        public Task Paginate<TResource>(string path, Func<DataCenterManager.Model.ResourceCollection<TResource>, bool> getNextPage)
         {
             return Paginate(path, null, getNextPage);
         }
@@ -446,7 +706,7 @@ Certificate thumbprint:   {certificate.Thumbprint}";
 
             path = (dictionary == null) ? UrlTemplate.Resolve(path, parameters) : UrlTemplate.Resolve(path, dictionary);
 
-            return serverEndpoint.OctopusServer.Resolve(path);
+            return endpoint.OctopusServer.Resolve(path);
         }
 
         protected virtual async Task<RootResource> EstablishSession()
@@ -495,15 +755,10 @@ Certificate thumbprint:   {certificate.Thumbprint}";
                 retries--;
             }
 
-            if (string.IsNullOrWhiteSpace(server.ApiVersion))
-                throw new UnsupportedApiVersionException("This Octopus Deploy server uses an older API specification than this tool can handle. Please check for updates to the Octo tool.");
-
-            var min = SemanticVersion.Parse(ApiConstants.SupportedApiSchemaVersionMin);
-            var max = SemanticVersion.Parse(ApiConstants.SupportedApiSchemaVersionMax);
             var current = SemanticVersion.Parse(server.ApiVersion);
 
-            if (current < min || current > max)
-                throw new UnsupportedApiVersionException($"This Octopus Deploy server uses a newer API specification ({server.ApiVersion}) than this tool can handle ({ApiConstants.SupportedApiSchemaVersionMin} to {ApiConstants.SupportedApiSchemaVersionMax}). Please check for updates to this tool.");
+            if (current.Major > 1)
+                throw new UnsupportedApiVersionException($"This Octopus Deploy server uses a newer API specification ({server.ApiVersion}) than this library can handle (1.x.x). Please check for updates to this library.");
 
             return server;
         }

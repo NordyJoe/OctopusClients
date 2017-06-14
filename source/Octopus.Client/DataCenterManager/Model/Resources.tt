@@ -1,0 +1,163 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="Microsoft.CSharp" #>
+<#@ assembly name="Newtonsoft.Json" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Runtime.Remoting.Messaging" #>
+<#@ import namespace="Newtonsoft.Json" #>
+<#@ import namespace="Newtonsoft.Json.Linq" #>
+<#@ output extension=".cs" #>
+
+using System.Collections.Generic;
+
+namespace Octopus.Client.DataCenterManager.Model
+{
+<#
+    var odcmRepositorySearchPaths = new[]
+    {
+        @"..\DataCenterManager"
+    };
+    var doc = GetSwaggerDefinition();
+
+    var ignoreResources = new[]
+    {
+        "Href"
+    };
+#>
+<# foreach(var resource in doc.definitions)
+    {
+        if (ignoreResources.Contains((string)resource.Name) || ((string)resource.Name).StartsWith("ResourceCollection"))
+            continue;
+
+#>
+	public partial class <#= resource.Name #> : Resource 
+	{
+<#
+        foreach (var property in resource.Value.properties)
+        {
+            var propertyName = char.ToUpper(property.Name[0]) + property.Name.Substring(1);
+			if(propertyName == "Links")
+				continue;
+#>
+        public <#= GetCSharpType(property.Value) #> <#= propertyName #> {get;set;}
+<#
+		}
+#>
+	}
+<#  } #>
+}
+/*
+namespace Octopus.DataCenterManager.Repositories
+{
+	using Octopus.DataCenterManager.Resources;
+
+<#
+    var repos = from JProperty path in (JObject) doc["paths"]
+        from JProperty method in path.Value
+        from tag in method.Value["tags"]
+        group method by tag
+        into g
+        select new
+        {
+            Name = g.Key,
+            Methods = g.Select(m => new
+            {
+                Method = m.Name,
+				Parameters = ((JArray) m.Value["parameters"])?
+				.Select(p => new
+                {
+                    Name = p.Value<string>("name"),
+                    InQuery = p.Value<string>("in") == "query",
+                    InPath = p.Value<string>("in") == "path",
+                    InBody = p.Value<string>("in") == "body",
+					Required = p.Value<bool>("required"),
+					Type = GetCSharpType(p)
+                })
+				
+            })
+        };
+
+foreach(var repo in repos)
+{
+#>
+	public class <#= repo.Name #>Repository
+	{
+		<#
+    foreach (var method in repo.Methods)
+    {
+        var parameters = method.Parameters?.Where(p => p.InPath)
+                             .Concat(method.Parameters.Where(p => p.InBody))
+                             .Concat(method.Parameters.Where(p => p.InQuery && p.Required))
+                             .Select(p => $"{p.Type} {p.Name}")
+                             .Concat(method.Parameters.Where(p => p.InQuery && !p.Required)
+                                 .Select(p => $"{p.Type} {p.Name} = null"))
+                             .ToArray()
+                         ?? new string[0];
+
+	#>
+        public void <#= method.Method #>(<#=string.Join(", ", parameters)#>)
+		{
+		}
+<#  } #>
+    
+	}
+<#  } #>
+}
+*/
+
+<#
+	dynamic GetSwaggerDefinition()
+    {
+        var templateDir = Path.GetDirectoryName(Host.TemplateFile);
+        var searchPaths = odcmRepositorySearchPaths
+            .Select(p => Path.Combine(templateDir, "..","..", "..", "..", p, "source"))
+            .ToArray();
+
+        var serverSourceFolder = searchPaths.FirstOrDefault(Directory.Exists);
+        if(serverSourceFolder == null)
+            throw new Exception("Could not find DataCenterManager source in folders: " + string.Join("; " ,searchPaths));
+
+        var swaggerPath = Path.Combine(serverSourceFolder, @"Tests\Tests\Plumbing\swagger.json");
+		if(!File.Exists(swaggerPath))
+			throw new Exception($"Could not find swagger file in {swaggerPath}. Ensure the 'SwaggerDocumentationCanBeGenerated' test has been run");
+
+        var json = File.ReadAllText(swaggerPath);
+        return JsonConvert.DeserializeObject<dynamic>(json);
+    }
+#>
+<#+
+static string GetCSharpType(dynamic property)
+{
+    var refType = (string) property["$ref"];
+    if (refType != null)
+    {
+        return refType.Substring(refType.LastIndexOf("/") + 1);
+    }
+
+    if (property.schema != null)
+    {
+        return GetCSharpType(property.schema);
+    }
+
+    var typeName = (string) property.type;
+    if (typeName.StartsWith("ResourceCollection"))
+        return typeName.Replace("[", "<").Replace("]", ">");
+
+    switch (typeName)
+    {
+        case "boolean":
+            return "bool";
+        case "integer":
+            return "int";
+		case "array":
+		    var arrayType = GetCSharpType(property.items);
+		    return $"IReadOnlyList<{arrayType}>";
+		case "string":
+		default:
+		    return property.type;
+     }
+}
+#>

@@ -30,8 +30,7 @@ This package contains the client library for the HTTP API in Octopus.</Descripti
   <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard1.6' ">
     <Compile Remove="Repositories\*.cs;Editors\*.cs" />
   </ItemGroup>
-  <ItemGroup>
-  </ItemGroup>
+
   <ItemGroup Condition=" '$(TargetFramework)' == 'net45' ">
     <PackageReference Include="Newtonsoft.Json" Version="9.0.1">
       <PrivateAssets>All</PrivateAssets>
@@ -55,4 +54,24 @@ This package contains the client library for the HTTP API in Octopus.</Descripti
     <PackageReference Include="System.Runtime.Numerics" Version="4.3.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="DataCenterManager\Model\Resources.cs">
+      <DependentUpon>Resources.tt</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="DataCenterManager\Model\Resources.tt">
+      <LastGenOutput>Resources.cs</LastGenOutput>
+      <Generator>TextTemplatingFileGenerator</Generator>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
 </Project>
