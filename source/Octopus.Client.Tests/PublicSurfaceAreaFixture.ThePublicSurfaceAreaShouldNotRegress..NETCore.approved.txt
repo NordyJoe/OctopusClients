@@ -458,7 +458,7 @@ Octopus.Client.Editors.Async
 Octopus.Client.Exceptions
 {
   class OctopusDeserializationException
-    _Exception
+    ISerializable
   {
     .ctor(Int32, String)
     .ctor(Int32, String, Exception)
@@ -473,7 +473,7 @@ Octopus.Client.Exceptions
     String HelpText { get; set; }
   }
   abstract class OctopusException
-    _Exception
+    ISerializable
   {
     String HelpText { get; }
     Int32 HttpStatusCode { get; }
@@ -492,27 +492,27 @@ Octopus.Client.Exceptions
     }
   }
   class OctopusMethodNotAllowedFoundException
-    _Exception
+    ISerializable
   {
     .ctor(String)
   }
   class OctopusResourceNotFoundException
-    _Exception
+    ISerializable
   {
     .ctor(String)
   }
   class OctopusSecurityException
-    _Exception
+    ISerializable
   {
     .ctor(Int32, String)
   }
   class OctopusServerException
-    _Exception
+    ISerializable
   {
     .ctor(Int32, String)
   }
   class OctopusValidationException
-    _Exception
+    ISerializable
   {
     .ctor(String, ICollection<String>)
     .ctor(Int32, String, ICollection<String>)
@@ -523,7 +523,7 @@ Octopus.Client.Exceptions
     Octopus.Client.Exceptions.TDetails DetailsAs()
   }
   class UnsupportedApiVersionException
-    _Exception
+    ISerializable
   {
     .ctor(String)
   }
@@ -557,6 +557,8 @@ Octopus.Client.Logging
     IDisposable OpenNestedContext(String)
   }
   class Logger
+    ICloneable
+    ISerializable
   {
     .ctor(Object, IntPtr)
     IAsyncResult BeginInvoke(Octopus.Client.Logging.LogLevel, Func<String>, Exception, Object[], AsyncCallback, Object)
@@ -727,7 +729,6 @@ Octopus.Client.Model
       Danger = 2
   }
   class AllowCsvAttribute
-    _Attribute
   {
     .ctor()
   }
@@ -754,7 +755,6 @@ Octopus.Client.Model
     String UserId { get; set; }
   }
   abstract class ApiPropertyAttribute
-    _Attribute
   {
   }
   abstract class Arguments
@@ -1712,6 +1712,8 @@ Octopus.Client.Model
     ICollection
     IReadOnlyDictionary<String, Href>
     IReadOnlyCollection<KeyValuePair<String, Href>>
+    ISerializable
+    IDeserializationCallback
   {
     .ctor()
     Octopus.Client.Model.LinkCollection Add(String, Octopus.Client.Model.Href)
@@ -1892,17 +1894,14 @@ Octopus.Client.Model
     .ctor()
   }
   class NormalizeAttribute
-    _Attribute
   {
     .ctor()
   }
   class NotDocumentReferenceAttribute
-    _Attribute
   {
     .ctor()
   }
   class NotReadableAttribute
-    _Attribute
   {
     .ctor()
   }
@@ -2261,6 +2260,8 @@ Octopus.Client.Model
     IEnumerable
     ISet<String>
     IReadOnlyCollection<String>
+    ISerializable
+    IDeserializationCallback
   {
     .ctor()
     .ctor(String)
@@ -2447,6 +2448,8 @@ Octopus.Client.Model
     ICollection
     IReadOnlyDictionary<ScopeField, ScopeValue>
     IReadOnlyCollection<KeyValuePair<ScopeField, ScopeValue>>
+    ISerializable
+    IDeserializationCallback
     IEquatable<ScopeSpecification>
   {
     .ctor()
@@ -2462,6 +2465,8 @@ Octopus.Client.Model
     IEnumerable
     ISet<String>
     IReadOnlyCollection<String>
+    ISerializable
+    IDeserializationCallback
   {
     .ctor()
     .ctor(String)
@@ -2469,7 +2474,6 @@ Octopus.Client.Model
     .ctor(IEnumerable<String>)
   }
   class ScriptConsoleSupportedAttribute
-    _Attribute
   {
     .ctor()
   }
@@ -2605,7 +2609,6 @@ Octopus.Client.Model
     Nullable<Int32> SmtpPort { get; set; }
   }
   class SquidAttribute
-    _Attribute
   {
     .ctor()
   }
@@ -2643,7 +2646,6 @@ Octopus.Client.Model
       Event = 0
   }
   class SupportsRestrictionAttribute
-    _Attribute
   {
     .ctor(String[])
     Boolean ExplicitTenantScopeRequired { get; set; }
@@ -2845,7 +2847,6 @@ Octopus.Client.Model
       Update = 1
   }
   class TentacleUpgradeSupportedAttribute
-    _Attribute
   {
     .ctor()
   }
@@ -2866,7 +2867,6 @@ Octopus.Client.Model
     }
   }
   class TrimAttribute
-    _Attribute
   {
     .ctor()
   }
@@ -3016,12 +3016,10 @@ Octopus.Client.Model
     String Template { get; set; }
   }
   class WriteableAttribute
-    _Attribute
   {
     .ctor()
   }
   class WriteableOnCreateAttribute
-    _Attribute
   {
     .ctor()
   }
@@ -3088,7 +3086,6 @@ Octopus.Client.Model.Accounts
     String Username { get; set; }
   }
   class SupportedAccountTypesAttribute
-    _Attribute
   {
     .ctor(Octopus.Client.Model.Accounts.AccountType[])
     Octopus.Client.Model.Accounts.AccountType[] AccountTypes { get; }
@@ -3978,24 +3975,20 @@ Octopus.Client.Util
 Octopus.Client.Validation
 {
   class ContainsSomeValidCharactersAttribute
-    _Attribute
   {
     .ctor()
   }
   class NonEmptyCollectionAttribute
-    _Attribute
   {
     .ctor()
     Boolean IsValid(Object)
   }
   class NonEmptyCollectionItemAttribute
-    _Attribute
   {
     .ctor()
     Boolean IsValid(Object)
   }
   class PasswordComplexityAttribute
-    _Attribute
   {
     static System.String DefaultMessage
     .ctor()
@@ -4003,12 +3996,10 @@ Octopus.Client.Validation
     Boolean IsValid(Object)
   }
   class PathSegmentAttribute
-    _Attribute
   {
     .ctor()
   }
   class ValidSemanticVersionOrMaskAttribute
-    _Attribute
   {
     .ctor()
     Boolean IsValid(Object)
