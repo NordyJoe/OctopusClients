@@ -89,6 +89,38 @@ Octopus.Client
   {
     Task<IOctopusAsyncClient> CreateAsyncClient(Octopus.Client.OctopusServerEndpoint, Octopus.Client.OctopusClientOptions)
   }
+  interface IOctopusDataCenterManagerClient
+    IDisposable
+  {
+    event Action<HttpResponseMessage> AfterReceivedHttpResponse
+    event Action<HttpRequestMessage> BeforeSendingHttpRequest
+    event Action<OctopusResponse> ReceivedOctopusResponse
+    event Action<OctopusRequest> SendingOctopusRequest
+    Octopus.Client.IOctopusDataCenterManagerRepository Repository { get; }
+    Octopus.Client.DataCenterManager.Model.RootResource RootDocument { get; }
+    Task<TResource> Create(String, Octopus.Client.TResource, Object)
+    Task Delete(String, Object)
+    Task<TResource> Get(String, Object)
+    Task<Stream> GetContent(String, Object)
+    Task<ResourceCollection<TResource>> List(String, Object)
+    Task<IReadOnlyList<TResource>> ListAll(String, Object)
+    Task Paginate(String, Func<ResourceCollection<TResource>, Boolean>)
+    Task Paginate(String, Object, Func<ResourceCollection<TResource>, Boolean>)
+    Task Post(String, Octopus.Client.TResource, Object)
+    Task<TResponse> Post(String, Octopus.Client.TResource, Object)
+    Task Post(String)
+    Task Put(String, Octopus.Client.TResource)
+    Task Put(String)
+    Task PutContent(String, Stream)
+    Uri QualifyUri(String, Object)
+    Task<RootResource> RefreshRootDocument()
+    Task<TResource> Update(String, Octopus.Client.TResource, Object)
+  }
+  interface IOctopusDataCenterManagerRepository
+  {
+    Octopus.Client.IOctopusDataCenterManagerClient Client { get; }
+    Octopus.Client.DataCenterManager.Repositories.ISpaceRepository Spaces { get; set; }
+  }
   class OctopusAsyncClient
     Octopus.Client.IOctopusAsyncClient
     IDisposable
@@ -184,6 +216,44 @@ Octopus.Client
     SslProtocols SslProtocols { get; set; }
     TimeSpan Timeout { get; set; }
   }
+  class OctopusDataCenterManagerClient
+    Octopus.Client.IOctopusDataCenterManagerClient
+    IDisposable
+  {
+    event Action<HttpResponseMessage> AfterReceivedHttpResponse
+    event Action<HttpRequestMessage> BeforeSendingHttpRequest
+    event Action<OctopusResponse> ReceivedOctopusResponse
+    event Action<OctopusRequest> SendingOctopusRequest
+    Octopus.Client.IOctopusDataCenterManagerRepository Repository { get; }
+    Octopus.Client.DataCenterManager.Model.RootResource RootDocument { get; }
+    static Task<IOctopusDataCenterManagerClient> Create(String, String)
+    static Task<IOctopusDataCenterManagerClient> Create(Octopus.Client.OctopusServerEndpoint)
+    Task<TResource> Create(String, Octopus.Client.TResource, Object)
+    Task Delete(String, Object)
+    void Dispose()
+    Task<TResource> Get(String, Object)
+    Task<Stream> GetContent(String, Object)
+    Task<ResourceCollection<TResource>> List(String, Object)
+    Task<IReadOnlyList<TResource>> ListAll(String, Object)
+    Task Paginate(String, Object, Func<ResourceCollection<TResource>, Boolean>)
+    Task Paginate(String, Func<ResourceCollection<TResource>, Boolean>)
+    Task Post(String, Octopus.Client.TResource, Object)
+    Task<TResponse> Post(String, Octopus.Client.TResource, Object)
+    Task Post(String)
+    Task Put(String, Octopus.Client.TResource)
+    Task Put(String)
+    Task PutContent(String, Stream)
+    Uri QualifyUri(String, Object)
+    Task<RootResource> RefreshRootDocument()
+    Task<TResource> Update(String, Octopus.Client.TResource, Object)
+  }
+  class OctopusDataCenterManagerRepository
+    Octopus.Client.IOctopusDataCenterManagerRepository
+  {
+    .ctor(Octopus.Client.IOctopusDataCenterManagerClient)
+    Octopus.Client.IOctopusDataCenterManagerClient Client { get; }
+    Octopus.Client.DataCenterManager.Repositories.ISpaceRepository Spaces { get; set; }
+  }
   abstract class OctopusRepositoryExtensions
   {
     static Octopus.Client.IOctopusAsyncRepository CreateRepository(Octopus.Client.IOctopusAsyncClient)
@@ -218,6 +288,7 @@ Octopus.Client
     ICredentials Credentials { get; }
     Octopus.Client.ILinkResolver OctopusServer { get; }
     IWebProxy Proxy { get; set; }
+    TimeSpan RequestTimeout { get; set; }
     Octopus.Client.OctopusServerEndpoint AsUser(String)
   }
   class UrlTemplate
@@ -231,6 +302,178 @@ Octopus.Client
     void SetParameter(String, String)
     void SetParameter(String, IEnumerable<String>)
     void SetParameter(String, IDictionary<String, String>)
+  }
+}
+Octopus.Client.DataCenterManager.Model
+{
+  class ConfigurationResource
+  {
+    .ctor()
+    String ConfigurationFilePath { get; set; }
+    String ConnectionString { get; set; }
+    Boolean CreateDatabase { get; set; }
+    String DataDirectory { get; set; }
+    Boolean FeatureInterface { get; set; }
+    String LogDirectory { get; set; }
+    Boolean SetupMode { get; set; }
+    String WorkingDirectory { get; set; }
+  }
+  class FileUpload
+  {
+    .ctor()
+    Stream Contents { get; set; }
+    String FileName { get; set; }
+  }
+  class KeyResource
+  {
+    .ctor()
+    String E { get; set; }
+    String Kid { get; set; }
+    String Kty { get; set; }
+    String N { get; set; }
+    String Use { get; set; }
+    IReadOnlyList<String> X5c { get; set; }
+    String X5t { get; set; }
+  }
+  class KeysResource
+  {
+    .ctor()
+    IReadOnlyList<KeyResource> Keys { get; set; }
+  }
+  class LinkCollection
+    IDictionary<String, String>
+    ICollection<KeyValuePair<String, String>>
+    IEnumerable<KeyValuePair<String, String>>
+    IEnumerable
+    IDictionary
+    ICollection
+    IReadOnlyDictionary<String, String>
+    IReadOnlyCollection<KeyValuePair<String, String>>
+  {
+    .ctor()
+  }
+  class MigrationResource
+  {
+    .ctor()
+    String DestinationApiKey { get; set; }
+    String DestinationSpaceId { get; set; }
+    String DestinationTaskId { get; set; }
+    String Id { get; set; }
+    Boolean IgnoreCertificates { get; set; }
+    Boolean IgnoreDeployments { get; set; }
+    Boolean IgnoreMachines { get; set; }
+    Boolean IgnoreTenants { get; set; }
+    Boolean IncludeTaskLogs { get; set; }
+    Boolean IsDryRun { get; set; }
+    String PackageId { get; set; }
+    String PackageVersion { get; set; }
+    String Password { get; set; }
+    IReadOnlyList<String> Projects { get; set; }
+    String ServerTaskId { get; set; }
+    String SourceApiKey { get; set; }
+    String SourceSpaceId { get; set; }
+    String SourceTaskId { get; set; }
+    String Status { get; set; }
+  }
+  class NamedReferenceItem
+  {
+    .ctor()
+    Boolean DisplayIdAndName { get; set; }
+    String DisplayName { get; set; }
+    String Id { get; set; }
+  }
+  class Resource
+  {
+    .ctor()
+    Octopus.Client.DataCenterManager.Model.LinkCollection Links { get; set; }
+    Boolean HasLink(String)
+    String Link(String)
+  }
+  class ResourceCollection`1
+  {
+    .ctor()
+    IReadOnlyList<T> Items { get; set; }
+    Int32 ItemsPerPage { get; set; }
+    Int32 TotalResults { get; set; }
+  }
+  class RootResource
+  {
+    .ctor()
+    String ApiVersion { get; set; }
+    String Application { get; set; }
+    String InstallationId { get; set; }
+    String Version { get; set; }
+  }
+  class SecurityGroupResource
+  {
+    .ctor()
+    IReadOnlyList<NamedReferenceItem> ExternalSecurityGroups { get; set; }
+    String Id { get; set; }
+    IReadOnlyList<String> MemberUserIds { get; set; }
+    String Name { get; set; }
+    IReadOnlyList<String> SecurityGroupIds { get; set; }
+  }
+  class ServerTaskResource
+  {
+    .ctor()
+    String CompletedTime { get; set; }
+    String Id { get; set; }
+    String Name { get; set; }
+    String QueueTime { get; set; }
+    String StartTime { get; set; }
+    String State { get; set; }
+  }
+  class SignInResource
+  {
+    .ctor()
+    String Password { get; set; }
+    String Username { get; set; }
+  }
+  class SpaceResource
+  {
+    .ctor()
+    String Id { get; set; }
+    String Name { get; set; }
+    String PublicUri { get; set; }
+  }
+  class UserResource
+  {
+    .ctor()
+    String DisplayName { get; set; }
+    String Id { get; set; }
+    Boolean IsActive { get; set; }
+    Boolean IsRequestor { get; set; }
+    Boolean IsService { get; set; }
+    String Username { get; set; }
+  }
+  class WellKnownConfigResource
+  {
+    .ctor()
+    String Authorization_endpoint { get; set; }
+    String Issuer { get; set; }
+    String Jwks_uri { get; set; }
+  }
+}
+Octopus.Client.DataCenterManager.Repositories
+{
+  interface ISpaceRepository
+  {
+    Task<SpaceResource> Create(Octopus.Client.DataCenterManager.Model.SpaceResource)
+    Task<SpaceResource> FindByApiKey()
+    Task<SpaceResource> Get(String)
+    Task<IReadOnlyList<SpaceResource>> GetAll()
+    Task<SpaceResource> Modify(Octopus.Client.DataCenterManager.Model.SpaceResource)
+  }
+  class SpaceRepository
+    Octopus.Client.DataCenterManager.Repositories.ISpaceRepository
+  {
+    static System.String CollectionLinkName
+    .ctor(Octopus.Client.IOctopusDataCenterManagerClient)
+    Task<SpaceResource> Create(Octopus.Client.DataCenterManager.Model.SpaceResource)
+    Task<SpaceResource> FindByApiKey()
+    Task<SpaceResource> Get(String)
+    Task<IReadOnlyList<SpaceResource>> GetAll()
+    Task<SpaceResource> Modify(Octopus.Client.DataCenterManager.Model.SpaceResource)
   }
 }
 Octopus.Client.Editors.Async
@@ -742,6 +985,7 @@ Octopus.Client.Model
     static System.String ApiKeyHttpHeaderName
     static System.String AuthenticationCookiePrefix
     static System.Int32 DefaultClientRequestTimeout
+    static System.TimeSpan DefaultClientRequestTimeoutTimespan
     static System.String OctopusUserAgentProductName
     static System.String SupportedApiSchemaVersionMax
     static System.String SupportedApiSchemaVersionMin
@@ -4051,6 +4295,14 @@ Octopus.Client.Serialization
 }
 Octopus.Client.Util
 {
+  class BypassProxy
+    IWebProxy
+  {
+    .ctor()
+    ICredentials Credentials { get; set; }
+    Uri GetProxy(Uri)
+    Boolean IsBypassed(Uri)
+  }
   class HashCodeCombiner
   {
     .ctor()

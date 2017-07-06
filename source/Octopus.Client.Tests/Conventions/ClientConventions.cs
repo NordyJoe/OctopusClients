@@ -24,7 +24,9 @@ namespace Octopus.Client.Tests.Conventions
 
         private static readonly TypeInfo[] RepositoryInterfaceTypes = ExportedTypes
             .Where(t => t.IsInterface && t.Name.EndsWith("Repository"))
+            .Where(t => !t.Namespace.Contains("DataCenterManager"))
             .Where(t => t.AsType() != typeof(IOctopusAsyncRepository))
+            .Where(t => t.AsType() != typeof(IOctopusDataCenterManagerRepository))
 #if SYNC_CLIENT
             .Where(t => t.AsType() != typeof(IOctopusRepository))
 #endif
