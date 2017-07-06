@@ -42,6 +42,7 @@ namespace Octopus.Client.Tests.Conventions
 
         private static readonly TypeInfo[] ResourceTypes = ExportedTypes
             .Where(t => t.Name.EndsWith("Resource"))
+            .Where(t => !t.Namespace.Contains("DataCenterManager"))
             .ToArray();
 
         private static readonly TypeInfo[] RepositoryResourceTypes = ResourceTypes
