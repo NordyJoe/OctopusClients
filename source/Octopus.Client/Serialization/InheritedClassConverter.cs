@@ -20,9 +20,14 @@ namespace Octopus.Client.Serialization
                 writer.WritePropertyName(property.Name);
                 serializer.Serialize(writer, property.GetValue(value, null));
             }
+            
+            WriteTypeProperty(writer, value, serializer);
 
             writer.WriteEndObject();
         }
+		
+		protected virtual void WriteTypeProperty(JsonWriter writer, object value, JsonSerializer serializer)
+        {}
 
         protected virtual Type DefaultType { get; } = null;
 
