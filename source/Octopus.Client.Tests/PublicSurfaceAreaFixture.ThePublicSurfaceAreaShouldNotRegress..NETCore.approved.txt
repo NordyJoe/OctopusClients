@@ -2367,7 +2367,6 @@ Octopus.Client.Model
     Octopus.Client.Model.IAuditedResource
   {
     .ctor(IEnumerable<TResource>, Octopus.Client.Model.LinkCollection)
-    Boolean IsStale { get; set; }
     IList<TResource> Items { get; set; }
     Int32 ItemsPerPage { get; set; }
     String ItemType { get; }

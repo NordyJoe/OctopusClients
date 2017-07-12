@@ -21,9 +21,6 @@ namespace Octopus.Client.Model
             get { return typeof (TResource).Name.Replace("Resource", ""); }
         }
 
-        [JsonProperty(Order = 3)]
-        public bool IsStale { get; set; }
-
         [JsonProperty(Order = 4)]
         public int TotalResults { get; set; }
 
