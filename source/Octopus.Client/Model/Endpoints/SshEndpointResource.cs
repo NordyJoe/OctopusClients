@@ -35,5 +35,20 @@ namespace Octopus.Client.Model.Endpoints
 
         [Writeable]
         public string ProxyId { get; set; }
+
+        /// <summary>
+        /// The .NET Core platform for Calamari.  This determines which build of Calamari will be pushed with deployments.
+        /// For full .NET framework (which requires Mono to be installed on the SSH target server), this value should be null.
+        /// For the available .NET Core platforms see <see cref="CalamariDotNetCorePlatforms"/>
+        /// </summary>
+        [Trim]
+        [Writeable]
+        public string DotNetCorePlatform { get; set; }
+
+        public static class CalamariDotNetCorePlatforms
+        {
+            public static readonly string Linux64 = "linux-x64";
+            public static readonly string Osx64 = "osx-x64";
+        }
     }
 }

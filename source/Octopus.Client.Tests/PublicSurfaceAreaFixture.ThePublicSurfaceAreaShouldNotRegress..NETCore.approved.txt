@@ -3446,6 +3446,11 @@ Octopus.Client.Model.Endpoints
     String WebAppName { get; set; }
     String WebSpaceName { get; set; }
   }
+  abstract class CalamariDotNetCorePlatforms
+  {
+    static System.String Linux64
+    static System.String Osx64
+  }
   class CloudRegionEndpointResource
     Octopus.Client.Model.IResource
     Octopus.Client.Model.IAuditedResource
@@ -3507,11 +3512,17 @@ Octopus.Client.Model.Endpoints
     .ctor()
     String AccountId { get; set; }
     Octopus.Client.Model.CommunicationStyle CommunicationStyle { get; }
+    String DotNetCorePlatform { get; set; }
     String Fingerprint { get; set; }
     String Host { get; set; }
     Int32 Port { get; set; }
     String ProxyId { get; set; }
     String Uri { get; }
+    abstract class CalamariDotNetCorePlatforms
+    {
+      static System.String Linux64
+      static System.String Osx64
+    }
   }
   class TentacleDetailsResource
   {
@@ -4243,6 +4254,7 @@ Octopus.Client.Repositories.Async
     Octopus.Client.Repositories.Async.IGet<UserRoleResource>
     Octopus.Client.Repositories.Async.ICreate<UserRoleResource>
     Octopus.Client.Repositories.Async.IModify<UserRoleResource>
+    Octopus.Client.Repositories.Async.IDelete<UserRoleResource>
   {
   }
   interface IVariableSetRepository
