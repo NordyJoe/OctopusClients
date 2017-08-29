@@ -18,11 +18,11 @@ namespace Octopus.Cli.Commands
             ReleaseTemplate = releaseTemplate;
             steps = releaseTemplate.Packages.Select(
                 p => new ReleasePlanItem(
-                    p.StepName,
+                    p.ActionName,
                     p.PackageId,
                     p.FeedId,
                     p.IsResolvable,
-                    versionResolver.ResolveVersion(p.StepName, p.PackageId)))
+                    versionResolver.ResolveVersion(p.ActionName, p.PackageId)))
                 .ToArray();
         }
 
@@ -53,7 +53,7 @@ namespace Octopus.Cli.Commands
 
         public List<SelectedPackage> GetSelections()
         {
-            return Steps.Select(x => new SelectedPackage {StepName = x.StepName, Version = x.Version}).ToList();
+            return Steps.Select(x => new SelectedPackage {ActionName = x.ActionName, Version = x.Version}).ToList();
         }
 
         public string GetHighestVersionNumber()
@@ -82,7 +82,7 @@ namespace Octopus.Cli.Commands
                 return result.ToString();
             }
 
-            var nameColumnWidth = Width("Name", steps.Select(s => s.StepName));
+            var nameColumnWidth = Width("Name", steps.Select(s => s.ActionName));
             var versionColumnWidth = Width("Version", steps.Select(s => s.Version));
             var sourceColumnWidth = Width("Source", steps.Select(s => s.VersionSource));
             var rulesColumnWidth = Width("Version rules", steps.Select(s => s.ChannelVersionRuleTestResult?.ToSummaryString()));
@@ -95,7 +95,7 @@ namespace Octopus.Cli.Commands
                 var item = steps[i];
                 result.AppendFormat(format,
                     i + 1,
-                    item.StepName,
+                    item.ActionName,
                     item.Version ?? "ERROR",
                     item.VersionSource,
                     item.ChannelVersionRuleTestResult?.ToSummaryString())
@@ -118,7 +118,7 @@ namespace Octopus.Cli.Commands
 
         public string GetActionVersionNumber(string packageStepName)
         {
-            var step = steps.SingleOrDefault(s => s.StepName.Equals(packageStepName, StringComparison.OrdinalIgnoreCase));
+            var step = steps.SingleOrDefault(s => s.ActionName.Equals(packageStepName, StringComparison.OrdinalIgnoreCase));
             if (step == null)
                 throw new CommandException("The step '" + packageStepName + "' is configured to provide the package version number but doesn't exist in the release plan.");
             if (string.IsNullOrWhiteSpace(step.Version))
